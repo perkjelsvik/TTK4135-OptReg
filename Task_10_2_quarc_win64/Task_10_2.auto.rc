@@ -1,0 +1,2 @@
+#include <winuser.rh>
+1 RT_MANIFEST "Task_10_2.auto.manifest"
