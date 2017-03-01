@@ -84,7 +84,7 @@ if plot_elev_response
     title('Elevation closed loop response')
 end
 
-% *---------------- PART 10.2 -------------------------*
+%% *---------------- PART 10.2 -------------------------*
 
 %% [---- 10.2.1 - Continuous time state space ----]
 A_c = [0 1 0 0; 
@@ -206,7 +206,7 @@ calculated_input.signals.dimensions = 1;
 figure();
 plot(calculated_input.time, calculated_input.signals.values)
 
-% --------------------- PART 10.3 -----------------*
+%% --------------------- PART 10.3 -----------------*
 
 %% [---- 10.2.4 - Implement QP Simulink ----]
 % Plot travel
@@ -215,8 +215,8 @@ f = load('travel_10_2.mat');
 plot(f.ans(1,:),f.ans(2,:), t,180*u,'r--', 'LineWidth',2); grid on;
 
 %% [---- Task 10.3.1 Q,R and K (LQR) ----]
-Q_lqr = diag([1 .1 .1 2]);
-R_lqr = diag([0.1]);
+Q_lqr = diag([3 1 .05 .1]);
+R_lqr = diag([.1]);
 K_lqr = dlqr(A,B,Q_lqr,R_lqr);
 
 %% [---- Task 10.3.2 Implement feedback ----]
@@ -227,4 +227,74 @@ figure();
 f = load('travel_10_3.mat');
 plot(f.ans(1,:),f.ans(2,:), t,180*u,'r--', 'LineWidth',2); grid on;
 
-%
+%% --------------------- PART 10.4 -----------------*
+
+%% [---- Task 10.4.1 System on continous state space ----]
+A_c2 = [0     1     0       0        0       0      ; 
+        0     0   -K_2      0        0       0      ;
+        0     0     0       1        0       0      ;
+        0     0 -K_1*K_pp -K_1*K_pd  0       0      ;
+        0     0     0       0        1       0      ;
+        0     0     0       0   -K_3*K_ep -K_3*K_ed ;];
+
+B_c2 = [0       0      ;
+        0       0      ;
+        0       0      ;
+     K_1*K_pp   0      ;
+        0       0      ;
+        0    K_3*K_ep  ;];
+    
+%% [---- Task 10.4.2 Forward Euler Method ----]
+I = eye(6);
+delta_t = 0.25;
+A_2 = I + delta_t*A_c2;
+B_2 = delta_t*B_c2;
+
+%% [---- Task 10.4.3 SQP ----]
+q1 = 1; q2 = q1;
+alpha = 0.2; beta = 20;
+lambda_t = 2*pi/3;
+N = 40;
+x0_2 = [x0; 0; 0];
+nx_sqp = size(x0_2,1);
+x_sqp = zeros(N*6,1);
+x_sqp(1:6) = x0_2;
+lb_sqp = -inf; ub_sqp = 0;
+Q_1_sqp = 2*diag([1 0 0 0 0 0]);
+
+% Number of states and inputs
+mx_sqp = size(A_2,2);                % Number of states (number of columns in A)
+mu_sqp = size(B_2,2);                % Number of inputs(number of columns in B)
+N_sqp = 40;                          % Time horizon for states
+M_sqp = N_sqp;                       % Time horizon for inputs
+n_sqp = N_sqp*mx_sqp+M_sqp*mu_sqp;
+
+% Generating A_eq_sqp, B_eq_sqp and Q_sqp
+A_eq_sqp = gena2(A_2, B_2, N_sqp, mx_sqp, mu_sqp);
+B_eq_sqp = zeros(size(A_eq_sqp,1),2);
+B_eq_sqp(1:mx_sqp) = A_2*x0_2;
+Q_sqp = 2*genq2(Q_1_sqp,q1,N_sqp,M_sqp,mu_sqp);
+
+% Initialize z_sqp
+c_sqp  = zeros(n_sqp,1);                 
+z_sqp  = zeros(n_sqp,1);
+z0_sqp = z_sqp;
+
+% Bounds
+pk      = 30*pi/180;
+ul 	    = -pk;                          % Lower bound on control -- u1
+uu 	    = pk;                           % Upper bound on control -- u1
+
+xl_sqp      = -Inf*ones(mx_sqp,1);              % Lower bound on states (no bound)
+xu_sqp      = Inf*ones(mx_sqp,1);               % Upper bound on states (no bound)
+xl_sqp(3)   = ul;                           % Lower bound on state x3
+xu_sqp(3)   = uu;                           % Upper bound on state x3
+
+% Generate constraints on measurements and inputs
+[vlb_sqp,vub_sqp]   = genbegr2(N_sqp,M_sqp,xl_sqp,xu_sqp,ul,uu);
+vlb_sqp(n_sqp)      = 0;                        % We want the last input to be zero
+vub_sqp(n_sqp)      = 0;                        % We want the last input to be zero
+
+f = @(z_sqp) 1/2*z_sqp'*G*z_sqp;
+c(t_2) = alpha*exp(-beta*(x_sqp(1)-lambda_t)^2-x_sqp(5));
+   x_sqp(t_2:t_2+nx) = fmincon(fun, x_sqp(t_2), [], [], A_eq, B_eq, lb_sqp, ub_sqp)
