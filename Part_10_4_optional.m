@@ -1,4 +1,4 @@
-%% --------------------- PART 10.4 -----------------*
+%% --------------------- PART 10.4 Optional -----------------*
 run('init.m')   % closes all figures, clears all and clc + init parameters
 addpath('Help functions')
 addpath('Data logs')
@@ -65,6 +65,10 @@ xl(1:nx,1)    = -Inf*ones(nx,1);         % Lower bound on states (no bound)
 xu(1:nx,1)    = Inf*ones(nx,1);          % Upper bound on states (no bound)
 xl(3)   = ul(1);                         % Lower bound on state x3
 xu(3)   = uu(1);                         % Upper bound on state x3
+%xl(2) = -0.6;
+%xu(2) = 0.5;
+%xl(6) = -0.03;
+%xu(6) = 0.06;
 
 % Generate constraints on measurements and inputs
 [vlb,vub]   = genbegr2(N,M,xl,xu,ul,uu);
@@ -72,7 +76,7 @@ vlb(n)      = 0;                        % We want the last input to be zero
 vub(n)      = 0;                        % We want the last input to be zero
 
 f = @(z) 1/2*z'*G*z;
-opt = optimoptions('fmincon','Algorithm','sqp','MaxFunEvals',40000);
+opt = optimoptions('fmincon','Algorithm','sqp','MaxFunEvals',400000);
 tic
 [Z, ZVAL, EXITFLAG] = fmincon(f, z0, [], [], A_eq, B_eq, ...
     vlb, vub, @constraints, opt);
@@ -103,110 +107,46 @@ x6  = [zero_padding; x6; zero_padding];
 
 t = 0:delta_t:delta_t*(length(u1)-1);
 
-% figure(); 
-% subplot(nx,1,1); 
-% plot(t,x1); grid on; 
-% title('travel')
-% subplot(nx,1,2)
-% plot(t,x2); grid on; 
-% title('travel dot')
-% subplot(nx,1,3)
-% plot(t,x3); grid on;
-% title('pitch')
-% subplot(nx,1,4)
-% plot(t,x4); grid on; 
-% title('pitch dot')
-% subplot(nx,1,5)
-% plot(t,x5); grid on;
-% title('elevation')
-% subplot(nx,1,6)
-% plot(t,x6); grid on;
-% title('elevation dot')
-load('Time_lqr.mat')
-load('output_open_10_4_3.mat')
-x1m = output_open_10_4_3(2,:);              % State x1 from solution
-x2m = output_open_10_4_3(3,:);              % State x2 from solution
-x3m = output_open_10_4_3(4,:);              % State x3 from solution
-x4m = output_open_10_4_3(5,:);              % State x4 from solution
-x5m = output_open_10_4_3(6,:);              % State x5 from solution
-x6m = output_open_10_4_3(7,:);              % State x6 from solution
+load('output_lqr_10_4_optional.mat')
+load('Time.mat')
+
+x1m_optional = output_lqr_10_4_optional(2,:);              % State x1 from solution
+x2m_optional = output_lqr_10_4_optional(3,:);              % State x2 from solution
+x3m_optional = output_lqr_10_4_optional(4,:);              % State x3 from solution
+x4m_optional = output_lqr_10_4_optional(5,:);              % State x4 from solution
+x5m_optional = output_lqr_10_4_optional(6,:);              % State x5 from solution
+x6m_optional = output_lqr_10_4_optional(7,:);              % State x6 from solution
 
 figure();
-plot(t,x1,'o-r', Time,x1m,'b', 'LineWidth', 2); grid on;
-legend('\lambda^*','\lambda')
+plot(t,x1,Time, x1m_optional,'o-r','LineWidth', 2); grid on;
+legend('\lambda^*','\lambda'); axis([5 20 -0.5 3.5])
 
 figure(); 
-plot(t, x2,'o-r',Time, x2m,'b', 'LineWidth', 2); grid on;
-legend('r^*','r')
+plot(t, x2,'o-r',Time, x2m_optional, 'LineWidth', 2); grid on;
+legend('r^*','r'); axis([5 20 -1 0.2])
 
 figure();
-plot(t,x3,'o-r',Time, x3m, 'b','LineWidth', 2); grid on;
-legend('p^*','p')
+plot(t,x3,'o-r',Time, x3m_optional,'LineWidth', 2); grid on;
+legend('p^*','p'); axis([5 20 -0.6 0.6])
 
 figure();
-plot(t,x4,'o-r',Time, x4m,'b','LineWidth', 2); grid on;
-legend('p_{dot}^*','p_{dot}')
+plot(t,x4,'o-r',Time, x4m_optional,'LineWidth', 2); grid on;
+legend('p_{dot}^*','p_{dot}'); axis([5 20 -1 0.8])
 
 figure();
-plot(t,x5,'o-r',Time, x5m, 'b','LineWidth', 2); grid on;
-legend('e^*','e')
+plot(t,x5,'o-r',Time, x5m_optional,'LineWidth', 2); grid on;
+legend('e^*','e'); axis([5 20 -0.05 0.2])
 
 figure();
-plot(t,x6,'o-r',Time, x6m,'b', 'LineWidth', 2); grid on;
-legend('e_{dot}^*','e_{dot}');
+plot(t,x6,'o-r',Time, x6m_optional, 'LineWidth', 2); grid on;
+legend('e_{dot}^*','e_{dot}'); axis([5 20 -0.16 0.16])
 
-% Input imported to helicopter
 x_opt = [x1 x2 x3 x4 x5 x6];
 u = [u1 u2];
 calculated_input.time = t;
 calculated_input.signals.values = u;
 calculated_input.signals.dimensions = 2;
-figure();
-plot(t, calculated_input.signals.values, '-o', 'Linewidth', 2); grid on;
-legend({'p_c', 'e_c'}, 'location', 'NorthEast', 'FontSize', 36)
 
-%% [---- Task 10_4_4 - With feedack ----]
-close all
 Q_lqr = diag([5 1 1 .5 30 10]);
 R_lqr = diag([.1 .1]);
 K_lqr = dlqr(A,B,Q_lqr,R_lqr);
-load('output_lqr_10_4_4.mat')
-
-
-x1m_lqr = output_lqr_10_4_4(2,:);              % State x1 from solution
-x2m_lqr = output_lqr_10_4_4(3,:);              % State x2 from solution
-x3m_lqr = output_lqr_10_4_4(4,:);              % State x3 from solution
-x4m_lqr = output_lqr_10_4_4(5,:);              % State x4 from solution
-x5m_lqr = output_lqr_10_4_4(6,:);              % State x5 from solution
-x6m_lqr = output_lqr_10_4_4(7,:);              % State x6 from solution
-
-figure();
-plot(t,x1,'o-r', Time(1,2400:end),x1m_lqr(2400:end),'b',Time,x1m,'--g', 'LineWidth', 2); grid on;
-legend('\lambda^*','\lambda')
-axis([5 20 -0.5 3.5])
-
-figure(); 
-plot(t(20:end), x2(20:end),'o-r',Time(1,2400:end), x2m_lqr(2400:end),'b', 'LineWidth', 2); grid on;
-legend('r^*','r')
-axis([5 20 -1 0.2])
-
-figure();
-plot(t(20:end),x3(20:end),'o-r',Time(1,2400:end), x3m_lqr(2400:end), 'b','LineWidth', 2); grid on;
-legend('p^*','p')
-axis([5 20 -0.6 0.6])
-
-figure();
-plot(t(20:end),x4(20:end),'o-r',Time(1,2400:end), x4m_lqr(2400:end),'b','LineWidth', 2); grid on;
-legend('p_{dot}^*','p_{dot}')
-axis([5 20 -1 0.8])
-
-figure();
-plot(t(20:end),x5(20:end),'o-r',Time(1,2400:end), x5m_lqr(2400:end), 'b',Time, x5m, '--g','LineWidth', 2); grid on;
-legend('e^*','e')
-axis([5 20 -0.05 0.2])
-
-figure();
-plot(t(20:end),x6(20:end),'o-r',Time(1,2400:end), x6m_lqr(2400:end),'b', 'LineWidth', 2); grid on;
-legend('e_{dot}^*','e_{dot}');
-axis([5 20 -0.16 0.16])
-
